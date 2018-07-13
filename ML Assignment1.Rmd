@@ -1,0 +1,240 @@
+---
+title: "MACHINE LEARNING - ASSIGNMENT1 ( CREDIT DATASET)"
+output:
+  html_document: default
+  pdf_document: default
+---
+Problem Statement of Credit dataset
+
+When bank receives loan application,based on the applicants profile the bank has to make decision reg to sanction loan approval or not.
+Two types of risks : 1.If the applicant have good credit risk ,i.e they likely to repay the loan ,then not approving the loan to the person results in a loss of business to the bank.
+2.If the applicant have bad credit risk,i.e is not likelyto repay the loan,then approval the loan of the person results financial loss to the bank.
+
+Classification of Variables and its type.
+1000 observations
+21 Variables including one response/target variable.
+7 numerical variables
+14 categorical variables
+
+
+```{r}
+suppressMessages(library(dplyr))
+suppressMessages(library(psych))
+suppressMessages(library(caTools))
+suppressMessages(library(rpart))
+suppressMessages(library(rpart.plot))
+suppressMessages(library(gmodels))
+suppressMessages(library(gridExtra))
+suppressMessages(library(caret))
+suppressMessages(library(ROCR))
+suppressMessages(library(ggplot2))
+suppressMessages(library(corrplot))
+suppressMessages(library(class))
+suppressMessages(library(knncat))
+suppressMessages(library(randomForest))
+suppressMessages(library(MASS))
+suppressMessages(library(naivebayes))
+suppressMessages(library(pROC))
+```
+Reading the Csv file
+```{r}
+crdata<-read.csv("C:/Manipal Learning/machine learning/credit-default .csv", header = TRUE)
+head(crdata)
+colnames(crdata)[colnames(crdata)=="default"] <- "default" 
+crdata$default<-factor(crdata$default,labels=c("good","bad"))# Assigning labels to the fator
+```
+## The total no of rows and columns in the dataset,summary of descriptive statistics and finding the NAs and missing data in the dataset
+## Data Imputation
+```{r}
+dim(crdata)
+summary(crdata)
+colSums(is.na(crdata))
+str(crdata)
+```
+
+Univariate Analysis
+```{r}
+describe(crdata)
+```
+
+## Months loan duration variable(outlier identification)
+```{r}
+boxplot.stats(crdata$age)$out
+```
+##--------------------------------------------------------------##
+## Prop.table - Express table entries as fraction of marginal table
+
+```{r}
+prop.table(table(crdata$checking_balance)) ## factor level for checking balance 
+prop.table(table(crdata$checking_balance,crdata$default))
+```
+
+
+## Bivariate Analysis based on the target variable "credit_risk" with other factors.
+
+```{r}
+g1 <- ggplot(crdata, 
+             aes(x = age , fill = default)) + 
+  geom_density(alpha = 0.7) + theme(axis.text.x = element_text(angle=90, hjust=1)) + 
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+g2 <- ggplot(crdata, 
+             aes(x = amount, fill = default)) + 
+  geom_density(alpha = 0.7) + 
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+
+g3 <- ggplot(crdata, 
+             aes(x = dependents, fill = default)) + 
+  geom_density(alpha = 0.7) + theme(axis.text.x = element_text(angle=90, hjust=1)) + 
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+
+g4 <- ggplot(crdata, 
+             aes(x = existing_credits, fill = default)) + 
+  geom_density(alpha = 0.7) + theme(axis.text.x = element_text(angle=90, hjust=1)) + 
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+grid.arrange(g1, g2, g3, g4, ncol = 2, nrow = 2)
+```
+Inference:
+In the above illustrates the distribution of the dataset based on t he target variable credit_risk with each variable
+1.Credit risk with the Age -  Here it clearly shows that there a correlation in the age and the credit risk.If the age comes low then there is risk.incresing the age the risk propationly decreases.
+2.Credit risk with the credit amount - There is low risk based on the credit amount.But inversely when the credit amount increases the risk also increases.worst risk
+3.Credit risk with the number of dependent - There is no risk based on the dependents.
+4.Credit risk with existing_credits in that bank - There is no risk because those applicants have already with existing credits in that bank.
+```{r}
+g1 <- ggplot(crdata, 
+             aes(x = installment_rate , fill = default)) + 
+  geom_density(alpha = 0.7) + theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+g2 <- ggplot(crdata, 
+             aes(x = months_loan_duration, fill = default)) + 
+  geom_density(alpha = 0.7) + theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+
+g3 <- ggplot(crdata, 
+             aes(x = residence_history, fill = default)) + theme(axis.text.x = element_text(angle=90, hjust=1)) +
+  geom_density(alpha = 0.7) + 
+  scale_fill_manual(values = c("#386cb0","#fdb462"))
+grid.arrange(g1, g2, g3, ncol = 2, nrow = 2)
+```
+Inference:
+1.Credit risk Vs installment_rate - Percentage of disposable income related with the credit risk.There is no risk below 3 levels.After that there will be bad credit risk.
+2.Credit risk Vs months of loan duration - There isno risk in the 10 and 20 months of loan duration.If the loan duration months increased to 30 and 40 then there will be credit risk.
+3.Credit risk Vs residence_history - Present residence history vs credit risk implies no impact.
+```{r}
+featurePlot(x =crdata[, c(2,5,13)], y = crdata$default, plot = "box", scales = list(y = list(relation="free"),x = list(rot = 90)),layout = c(4,1 ), auto.key = list(columns = 2))
+```
+#Analysing credit risk with categorical variables.
+```{r}
+g1<-ggplot(crdata, aes(x = checking_balance, fill = default)) + geom_bar()
+g2<-ggplot(crdata, aes(x = credit_history, fill = default)) + geom_bar()
+g3<-ggplot(crdata, aes(x = employment_length, fill = default)) + geom_bar()
+g4<-ggplot(crdata, aes(x = foreign_worker, fill = default)) + geom_bar()
+g5<-ggplot(crdata, aes(x = housing, fill = default)) + geom_bar()
+g6<-ggplot(crdata, aes(x = installment_plan, fill = default)) + geom_bar()
+g7<-ggplot(crdata, aes(x = job, fill = default)) + geom_bar()
+g8<-ggplot(crdata, aes(x = other_debtors, fill = default)) + geom_bar()
+g9<-ggplot(crdata, aes(x = personal_status, fill = default)) + geom_bar()
+g10<-ggplot(crdata, aes(x = property, fill = default)) + geom_bar()
+g11<-ggplot(crdata, aes(x = purpose, fill = default)) + geom_bar()
+g12<-ggplot(crdata, aes(x = savings_balance, fill = default)) + geom_bar()
+g13<-ggplot(crdata, aes(x = telephone, fill = default)) + geom_bar()
+grid.arrange(g1, g2, g3, g4 , ncol = 2, nrow = 2)
+grid.arrange(g5, g6, g7, g8 , ncol = 2, nrow = 2)
+grid.arrange(g9, g10, g11, g12 , ncol = 2, nrow = 2)
+grid.arrange(g13 , ncol = 2, nrow = 2)
+```
+
+```{r}
+corrplot(cor(data.matrix(crdata[,-c(17)])), method = "circle")
+```
+
+# LOGISTIC REGRESSION   
+  
+```{r}
+set.seed(123)
+logreg <- glm(default ~ ., family = binomial(link = 'logit'), data = crdata)
+summary(logreg)
+predictions_logit<-predict(logreg, crdata, type="response")
+confusionmat<-table(crdata$default,predictions_logit>0.5)
+confusionmat
+Accuracy<-sum(diag(confusionmat))/sum(confusionmat)
+Accuracy
+ROC_predict<-prediction(predictions_logit,crdata$default)
+ROC_logit <- roc(crdata$default ,predictions_logit)
+plot(ROC_logit)
+```
+## Decision tree
+
+```{r}
+set.seed(123)
+head(crdata)
+splits = sample.split(crdata$default, SplitRatio = 0.7)
+train = crdata[splits, ]
+test = crdata[!splits, ]
+tree = rpart(crdata$default ~ ., data = crdata)
+rpart.plot(tree)
+predict_default = predict(tree, newdata = test, type = "class")
+CrossTable(test$default,
+predict_default,
+dnn = c("actual", "prediction"),
+prop.c = FALSE,
+prop.chisq = FALSE,
+prop.r = FALSE)
+summary(tree)
+```
+
+##NAIVE BAYES 
+
+```{r}
+set.seed(2)
+splits = sample.split(crdata$default, SplitRatio = 0.7)
+train = crdata[splits, ]
+test = crdata[!splits, ]
+naive<-naive_bayes((default) ~ .,data=train)
+naive
+train$defaultpred <- predict(naive,train)
+test$defaultpred <- predict(naive,test)
+confusionmat <- table(actual=test$default,predicted=test$defaultpred)
+confusionmat
+bayesAccuracy <- sum(diag(confusionmat))/sum(confusionmat)
+bayesAccuracy
+```
+## Randomforest Algorithm 
+```{r}
+set.seed(123)
+splits = sample.split(crdata$default, SplitRatio = 0.7)
+train = crdata[splits, ]
+test = crdata[!splits, ]
+bestmytry<-tuneRF(train,train$default,stepFactor = 1.2,improve = .01,trace = T,plot=F)
+ranfor<-randomForest(default~.,data=train)
+ranfor
+importance(ranfor)
+varImp(ranfor)
+varImpPlot(ranfor)
+test$defaultpredict_rf<-predict(ranfor,test,type = "class")
+confusion<-table(test$defaultpredict_rf,test$default)
+confusion
+accuracy <-sum(diag(confusion))/sum(confusion)
+accuracy
+```
+# KNN ALGORITHM - Supervised learning algorithm
+```{r}
+set.seed(123)
+crdatadef<-data.matrix(crdata)
+crdatadef<-data.frame(crdatadef)
+normalize<-function(x){return((x-min(x))/(max(x)-min(x)))}# Normalize the dataset
+prc_n<-as.data.frame(lapply(crdatadef,normalize)) # removing one class/target variable
+splits = sample.split(prc_n$default, SplitRatio = 0.7)
+train_knn = prc_n[splits, ]
+test_knn = prc_n[!splits, ]
+crdatadef$default<-factor(crdatadef$default,labels = c("good","bad"))
+knn_predict= knn (train_knn,test_knn,k = 12,cl = as.factor(train_knn$default) ,l = 1)
+#CrossTable(x=test_knn,y=knn_predict,prop.chisq=FALSE)
+pairs.panels(train_knn)
+knn_confusionmat <- table(actual=test_knn$default,predicted=knn_predict)
+knn_confusionmat
+knn_accuracy = sum(diag(knn_confusionmat))/sum(knn_confusionmat)
+knn_accuracy
+```
+
+
+
